@@ -1,0 +1,33 @@
+@media (max-width: 768px) {
+  .container {
+    padding: 10px;
+  }
+
+  .match-card {
+    margin: 10px 0;
+    flex-direction: column;
+  }
+
+  .button {
+    width: 100%;
+    margin: 5px 0;
+  }
+
+  table {
+    font-size: 12px;
+  }
+
+  .dispute-form {
+    padding: 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  h1 {
+    font-size: 20px;
+  }
+
+  .amount {
+    font-size: 18px;
+  }
+}
