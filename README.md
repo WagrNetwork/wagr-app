@@ -4,24 +4,29 @@
 [![TypeScript](https://img.shields.io/badge/typescript-5.0-blue)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/build-vite-purple)](https://vitejs.dev/)
 
-Frontend for Wagr Protocol — match lobby, staking UI, wallet connect, and settlement tracking.
+Frontend for Wagr Protocol — match lobby, staking UI, wallet connect, and settlement tracking, built on [`@wagrnetwork/wagr-sdk`](https://github.com/WagrNetwork/wagr-sdk).
 
 ## Overview
 
-Wagr App provides:
+- **Match Lobby** (`/`) — create a match (stakes into escrow) and join existing ones
+- **Dashboard** (`/dashboard`) — matches you've created/joined, live-refreshed via on-chain events
+- **Match Detail** (`/match/:matchId`) — join, dispute, finalize, withdraw
+- **Dispute** (`/match/:matchId/dispute`) — file a dispute (only the recorded loser can succeed, enforced on-chain)
+- **Fees** (`/fees`) — view/withdraw accumulated protocol fees (withdrawal succeeds only for the payout contract's fee collector)
+- **History** (`/history`) — your finalized matches, win/loss
+- **Settings** (`/settings`) — theme, local prefs
 
-1. **Match Lobby** — Create and join wagering matches
-2. **Staking UI** — Approve tokens and stake XLM
-3. **Wallet Connect** — Freighter, Albedo, and Rabet support
-4. **Live Settlement** — Real-time result submission and dispute tracking
-5. **Fee Dashboard** — Admin fee collection and withdrawal
+Wallet connection is via the [Freighter](https://freighter.app) browser extension only. Freighter never exposes your private key — it signs transactions itself and hands back signed XDR — so the SDK accepts a `WalletSigner` (a `{ publicKey, signTransaction }` pair) anywhere it needs a signer, in addition to a raw `Keypair` for server-side/oracle use.
+
+The app has no backend of its own: match/result/dispute state lives entirely in the three Soroban contracts. Since escrow has no reverse index of "which matches is this player in," the app tracks match IDs the current browser has created/joined in `localStorage` (`src/lib/matchStore.ts`) and queries live state per match ID.
 
 ## Quick Start
 
 ### Prerequisites
 
 - Node.js 18+
-- npm or yarn
+- The [wagr-sdk](https://github.com/WagrNetwork/wagr-sdk) repo checked out as a sibling directory (this app depends on it via a local `file:../wagr-sdk` link, not a published npm package)
+- [Freighter](https://freighter.app) browser extension, for actually connecting a wallet
 
 ### Install
 
@@ -31,7 +36,7 @@ npm install
 
 ### Configure
 
-Create `.env.local`:
+Copy `.env.example` to `.env` and fill in your deployed contract IDs:
 
 ```
 VITE_SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
@@ -41,7 +46,7 @@ VITE_RESOLVER_CONTRACT_ID=CB...
 VITE_PAYOUT_CONTRACT_ID=CC...
 ```
 
-### Run Dev Server
+### Run
 
 ```bash
 npm run dev
@@ -56,322 +61,57 @@ npm run build
 npm run preview
 ```
 
-## Project Structure
+## Project structure
 
 ```
 src/
 ├── components/
-│   ├── WalletConnect.tsx      — Connect/disconnect Freighter/Albedo
-│   ├── MatchLobby.tsx         — Create/join/list matches
-│   ├── StakingForm.tsx        — Approve and stake tokens
-│   ├── LiveMatch.tsx          — Watch match, dispute/finalize
-│   ├── FeeCollector.tsx       — Admin dashboard (withdraw fees)
-│   └── ResultTracker.tsx      — Real-time result and dispute status
-├── hooks/
-│   ├── useWallet.ts           — Wallet connection state
-│   ├── useContract.ts         — Contract interaction
-│   ├── useMatch.ts            — Match lifecycle management
-│   └── usePolling.ts          — Poll for updates
-├── lib/
-│   ├── sdk.ts                 — WagrSDK initialization
-│   ├── adapters.ts            — Adapter registry
-│   └── utils.ts               — Helpers (format, validation, etc)
+│   ├── WalletConnect.tsx   — Freighter connect/disconnect button
+│   ├── MatchLobby.tsx      — create/list matches
+│   └── DisputeForm.tsx     — evidence submission form
 ├── pages/
-│   ├── Home.tsx               — Lobby landing
-│   ├── Match.tsx              — Individual match view
-│   └── Admin.tsx              — Fee management
-├── App.tsx
-├── main.tsx
-└── index.css
+│   ├── Dashboard.tsx       — your matches, live via subscribeToEvents
+│   ├── MatchDetail.tsx     — join / finalize / withdraw for one match
+│   ├── Dispute.tsx         — wraps DisputeForm, submits via the SDK
+│   ├── Fees.tsx            — fee balance + withdrawal
+│   ├── History.tsx         — finalized matches, win/loss
+│   └── Settings.tsx        — theme + local prefs
+├── lib/
+│   ├── sdk.ts              — WagrSDK singleton, configured from env vars
+│   ├── freighter.ts        — Freighter API adapter → WagrSDK WalletSigner
+│   ├── WalletContext.tsx   — React context wrapping the connected wallet
+│   ├── matchStore.ts       — localStorage-backed "my matches" index
+│   └── analytics.ts        — shared AnalyticsService instance
+├── hooks/
+│   ├── useDarkMode.ts
+│   └── useRealtimeUpdates.ts
+├── App.tsx                 — routes + nav
+└── main.tsx                — providers: React Query, WalletProvider, BrowserRouter
 ```
-
-## Key Features
-
-### Wallet Connect
-
-```tsx
-<WalletConnect onConnect={(wallet) => {
-  console.log('Connected:', wallet.publicKey);
-}} />
-```
-
-Supports Freighter, Albedo, and Rabet. Stores connected wallet in localStorage.
-
-### Create Match
-
-```tsx
-<MatchLobby
-  onCreateMatch={(match) => {
-    console.log('Match created:', match.matchId);
-  }}
-/>
-```
-
-Form collects:
-- Counterparty address
-- Stake amount
-- Game type (Lichess, Chess.com, Manual)
-- Game ID (auto-filled for Lichess if username provided)
-
-### Live Match Tracking
-
-```tsx
-<LiveMatch
-  matchId="match-uuid"
-  onResultSubmitted={() => console.log('Result in!')}
-  onFinalized={(winner) => console.log('Winner:', winner)}
-/>
-```
-
-Polls resolver contract for:
-- Result submission status
-- Dispute window countdown
-- Finalization
-- Payout status
-
-### Admin Dashboard
-
-```tsx
-<FeeCollector
-  feeBalanceStellar={19.5}
-  onWithdraw={(txHash) => {
-    console.log('Fees withdrawn:', txHash);
-  }}
-/>
-```
-
-Shows:
-- Accumulated fees
-- Withdrawal history
-- Fee rate (and admin can update)
-
-## Pages
-
-### `/` — Home/Lobby
-
-- List active matches
-- Quick "Create Match" button
-- Recent matches for logged-in player
-
-### `/match/:matchId` — Match Detail
-
-- Players' details
-- Stake amounts
-- Live result submission tracker
-- Dispute form (if in window)
-- Finalize button (if ready)
-
-### `/admin` — Fee Management
-
-- Current fee rate
-- Accumulated balance
-- Withdrawal button
-- Withdrawal history
-
-## Component Examples
-
-### WalletConnect
-
-```tsx
-import { WalletConnect } from '@/components/WalletConnect';
-
-export function Header() {
-  return <WalletConnect />;
-}
-```
-
-### Create Match
-
-```tsx
-import { MatchLobby } from '@/components/MatchLobby';
-
-export function Home() {
-  return (
-    <div>
-      <h1>Wagr Matches</h1>
-      <MatchLobby />
-    </div>
-  );
-}
-```
-
-### Live Tracking
-
-```tsx
-import { LiveMatch } from '@/components/LiveMatch';
-import { useParams } from 'react-router';
-
-export function MatchPage() {
-  const { matchId } = useParams();
-  return <LiveMatch matchId={matchId!} />;
-}
-```
-
-## Hooks
-
-### useWallet
-
-```ts
-const { wallet, connect, disconnect, isConnected } = useWallet();
-```
-
-Manages wallet connection and public key.
-
-### useContract
-
-```ts
-const { sdk, callContract, queryContract } = useContract();
-```
-
-Initializes WagrSDK and provides typed wrappers for contract calls.
-
-### useMatch
-
-```ts
-const {
-  match,
-  result,
-  dispute,
-  isLoading,
-  error,
-} = useMatch(matchId);
-```
-
-Fetches and subscribes to match state updates.
-
-### usePolling
-
-```ts
-const { data, isLoading } = usePolling(
-  async () => await sdk.getMatch(matchId),
-  2000, // poll every 2s
-);
-```
-
-Generic polling hook for live updates.
-
-## Styling
-
-Built with Tailwind CSS. Configuration in `tailwind.config.js`.
-
-Key utilities:
-- `btn` — Standard button
-- `input-field` — Form input
-- `card` — Card container
-- `badge` — Status badge
-
-Customize via `globals.css` or Tailwind config.
 
 ## Testing
 
 ```bash
-npm run test
+npm test
 ```
 
-Tests use Vitest + React Testing Library.
+Uses Vitest + React Testing Library + jsdom. `WalletConnect` and `App` tests mock `useWallet` to exercise the connected/disconnected states without a real extension.
 
-```ts
-import { render, screen } from '@testing-library/react';
-import { MatchLobby } from '@/components/MatchLobby';
-
-test('creates a match', () => {
-  render(<MatchLobby />);
-  expect(screen.getByText('Create Match')).toBeInTheDocument();
-});
-```
-
-## Build & Deploy
-
-### Development
-
-```bash
-npm run dev
-```
-
-### Staging
-
-```bash
-npm run build:staging
-npm run preview
-```
-
-### Production
+## Deploy
 
 ```bash
 npm run build
 ```
 
-Artifacts in `dist/`. Deploy to Vercel, Netlify, or S3.
-
-### Environment-Specific Config
-
-```env.development.local
-VITE_SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
-```
-
-```env.production.local
-VITE_SOROBAN_RPC_URL=https://soroban-mainnet.stellar.org
-```
-
-Vite auto-loads correct `.env.*.local` based on `NODE_ENV`.
-
-## Real-time Updates
-
-Uses Soroban event listeners (when available) or polling fallback:
-
-```ts
-// Listen for match created events
-await sdk.watchMatchEvents('created', (event) => {
-  console.log('New match:', event.matchId);
-});
-
-// Fallback: poll every 2s
-const { data } = usePolling(() => sdk.getMatch(matchId), 2000);
-```
+Artifacts in `dist/` — deploy to any static host (Vercel, Netlify, S3 + CloudFront, etc). There's no server-side component.
 
 ## Security
 
-- Never store private keys in app — always use wallet (Freighter, Albedo)
-- Validate contract IDs on page load
-- Sign all transactions with user's wallet
-- HTTPS only in production
-
-## Error Handling
-
-Wrap contract calls in try/catch and show user-friendly errors:
-
-```ts
-try {
-  const result = await sdk.createMatch(options, wallet);
-  if (result.status === 'failed') {
-    setError(result.error);
-  }
-} catch (err) {
-  setError(`Connection error: ${err.message}`);
-}
-```
-
-## Performance
-
-- React Query for caching and background refetch
-- Lazy load components (React.lazy)
-- Code split by route
-- Image optimization (next/image or similar)
-
-Monitor with Lighthouse:
-```bash
-npm run lighthouse
-```
-
-## Contributing
-
-See [CONTRIBUTING.md](./CONTRIBUTING.md).
-
-## License
-
-MIT
+- The app never handles private keys — Freighter signs everything, the app only ever sees public keys and signed XDR
+- All contract-mutating actions are signed by the connected wallet; the contracts themselves enforce authorization (e.g. only the recorded loser can dispute, only the payout contract's arbiter can settle)
+- Contract IDs come from build-time env vars, not user input
 
 ## Related
 
-- [wagr-contracts](https://github.com/stellar/wagr-contracts) — Core Soroban smart contracts
-- [wagr-sdk](https://github.com/stellar/wagr-sdk) — TypeScript SDK and adapters
+- [wagr-contracts](https://github.com/WagrNetwork/wagr-contracts) — Core Soroban smart contracts
+- [wagr-sdk](https://github.com/WagrNetwork/wagr-sdk) — TypeScript SDK and adapters

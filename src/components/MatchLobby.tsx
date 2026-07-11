@@ -1,73 +1,80 @@
-import { useState } from 'react'
+import { useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
+import { Asset } from '@stellar/stellar-sdk';
+import { sdk } from '../lib/sdk';
+import { useWallet } from '../lib/WalletContext';
+import { recordMatch, getMyMatches } from '../lib/matchStore';
+import { analytics } from '../lib/analytics';
 
 interface MatchLobbyProps {
-  walletAddress: string
+  walletAddress: string;
 }
 
-interface Match {
-  id: string
-  player1: string
-  player2: string
-  amount: string
-  gameType: string
-  gameId: string
-  status: 'pending' | 'active' | 'completed'
-}
+const XLM_ASSET_ID = Asset.native().contractId(import.meta.env.VITE_NETWORK_PASSPHRASE);
 
 /**
- * Match lobby for creating and browsing matches.
+ * Match lobby for creating and joining escrow-staked matches.
  */
 export default function MatchLobby({ walletAddress }: MatchLobbyProps) {
-  const [isCreating, setIsCreating] = useState(false)
-  const [counterparty, setCounterparty] = useState('')
-  const [amount, setAmount] = useState('1')
-  const [gameType, setGameType] = useState<'lichess' | 'chesscom' | 'manual'>('lichess')
-  const [gameId, setGameId] = useState('')
-  const [matches, setMatches] = useState<Match[]>([])
+  const { signer } = useWallet();
+  const [counterparty, setCounterparty] = useState('');
+  const [amount, setAmount] = useState('1');
+  const [gameType, setGameType] = useState<'lichess' | 'chesscom' | 'manual'>('lichess');
+  const [gameId, setGameId] = useState('');
+  const [myMatches, setMyMatches] = useState<string[]>(getMyMatches());
+  const [lastError, setLastError] = useState<string | null>(null);
 
-  const handleCreateMatch = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsCreating(true)
+  const createMatch = useMutation({
+    mutationFn: async () => {
+      if (!signer) throw new Error('Connect your wallet first');
+      const stroops = String(Math.round(parseFloat(amount) * 10_000_000));
 
-    try {
-      // Simulate match creation
-      const newMatch: Match = {
-        id: `match-${Date.now()}`,
-        player1: walletAddress,
-        player2: counterparty,
-        amount: amount + ' XLM',
-        gameType,
-        gameId,
-        status: 'pending',
+      const result = await sdk.createMatch(
+        {
+          player1: walletAddress,
+          player2: counterparty,
+          amount: stroops,
+          asset: XLM_ASSET_ID,
+          gameType,
+          gameId,
+        },
+        signer,
+      );
+
+      if (result.status === 'failed' || !result.data) {
+        throw new Error(result.error ?? 'Match creation failed');
       }
-
-      setMatches([newMatch, ...matches])
-
-      // Reset form
-      setCounterparty('')
-      setAmount('1')
-      setGameId('')
-
-      alert(`Match created! Waiting for ${counterparty} to join.`)
-    } catch (err: any) {
-      alert(`Error creating match: ${err.message}`)
-    } finally {
-      setIsCreating(false)
-    }
-  }
+      return result.data;
+    },
+    onSuccess: (match) => {
+      recordMatch(match.matchId);
+      setMyMatches(getMyMatches());
+      analytics.track('match_created', { matchId: match.matchId, gameType });
+      setCounterparty('');
+      setAmount('1');
+      setGameId('');
+      setLastError(null);
+    },
+    onError: (err) => setLastError(err instanceof Error ? err.message : String(err)),
+  });
 
   return (
     <div className="space-y-6">
-      {/* Create Match Form */}
       <div className="card">
         <h2 className="text-2xl font-bold mb-6">Create Match</h2>
-        <form onSubmit={handleCreateMatch} className="space-y-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            createMatch.mutate();
+          }}
+          className="space-y-4"
+        >
           <div>
             <label className="block text-sm font-semibold mb-2">Counterparty Address</label>
             <input
               type="text"
               value={counterparty}
-              onChange={e => setCounterparty(e.target.value)}
+              onChange={(e) => setCounterparty(e.target.value)}
               placeholder="G..."
               className="input-field w-full"
               required
@@ -80,7 +87,7 @@ export default function MatchLobby({ walletAddress }: MatchLobbyProps) {
               <input
                 type="number"
                 value={amount}
-                onChange={e => setAmount(e.target.value)}
+                onChange={(e) => setAmount(e.target.value)}
                 min="0.1"
                 step="0.1"
                 className="input-field w-full"
@@ -92,7 +99,7 @@ export default function MatchLobby({ walletAddress }: MatchLobbyProps) {
               <label className="block text-sm font-semibold mb-2">Game Type</label>
               <select
                 value={gameType}
-                onChange={e => setGameType(e.target.value as any)}
+                onChange={(e) => setGameType(e.target.value as typeof gameType)}
                 className="input-field w-full"
               >
                 <option value="lichess">Lichess</option>
@@ -107,51 +114,39 @@ export default function MatchLobby({ walletAddress }: MatchLobbyProps) {
             <input
               type="text"
               value={gameId}
-              onChange={e => setGameId(e.target.value)}
+              onChange={(e) => setGameId(e.target.value)}
               placeholder={gameType === 'lichess' ? 'abc123def456' : 'game-id'}
               className="input-field w-full"
               required
             />
           </div>
 
-          <button
-            type="submit"
-            disabled={isCreating}
-            className="btn btn-primary w-full"
-          >
-            {isCreating ? 'Creating...' : 'Create Match'}
+          {lastError && <div className="text-red-600 text-sm">{lastError}</div>}
+
+          <button type="submit" disabled={createMatch.isPending || !signer} className="btn btn-primary w-full">
+            {!signer ? 'Connect wallet to create a match' : createMatch.isPending ? 'Staking...' : 'Create Match'}
           </button>
         </form>
       </div>
 
-      {/* Match List */}
-      {matches.length > 0 && (
+      {myMatches.length > 0 && (
         <div className="card">
-          <h2 className="text-2xl font-bold mb-6">Active Matches</h2>
+          <h2 className="text-2xl font-bold mb-6">Your Matches</h2>
           <div className="space-y-4">
-            {matches.map(match => (
+            {myMatches.map((matchId) => (
               <div
-                key={match.id}
+                key={matchId}
                 className="border border-gray-200 rounded-lg p-4 flex justify-between items-center"
               >
-                <div>
-                  <p className="font-semibold">{match.gameType} Match</p>
-                  <p className="text-sm text-gray-600">{match.amount}</p>
-                  <p className="text-xs text-gray-500">vs {match.player2.slice(0, 10)}...</p>
-                </div>
-                <div className="text-right">
-                  <span className="badge badge-warning">{match.status}</span>
-                  <p className="text-sm mt-2">
-                    <a href="#" className="text-blue-600 hover:underline">
-                      View
-                    </a>
-                  </p>
-                </div>
+                <p className="font-mono text-sm">{matchId}</p>
+                <a href={`/match/${matchId}`} className="text-blue-600 hover:underline text-sm">
+                  View
+                </a>
               </div>
             ))}
           </div>
         </div>
       )}
     </div>
-  )
+  );
 }

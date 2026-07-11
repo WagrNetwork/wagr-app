@@ -17,7 +17,7 @@ export default function DisputeForm({ matchId, onSubmit }: DisputeFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="dispute-form">
-      <h2>File Dispute</h2>
+      <h2>File Dispute for Match {matchId}</h2>
       <select value={type} onChange={e => setType(e.target.value)}>
         <option value="screenshot">Screenshot</option>
         <option value="video">Video</option>

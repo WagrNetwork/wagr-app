@@ -1,49 +1,60 @@
-import React, { useState, useEffect } from 'react';
-
-export interface Match {
-  id: string;
-  opponent: string;
-  status: 'active' | 'completed' | 'disputed';
-  amount: string;
-  createdAt: number;
-}
+import { useEffect } from 'react';
+import { useQueries, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
+import { sdk } from '../lib/sdk';
+import { getMyMatches } from '../lib/matchStore';
 
 export default function Dashboard() {
-  const [matches, setMatches] = useState<Match[]>([]);
-  const [loading, setLoading] = useState(true);
+  const matchIds = getMyMatches();
+  const queryClient = useQueryClient();
 
+  const matchQueries = useQueries({
+    queries: matchIds.map((matchId) => ({
+      queryKey: ['match', matchId],
+      queryFn: () => sdk.getMatch(matchId),
+    })),
+  });
+
+  // Live-refresh match state as on-chain events come in, instead of waiting
+  // for the next poll interval.
   useEffect(() => {
-    fetchMatches();
-  }, []);
+    sdk.subscribeToEvents({ pollIntervalMs: 8000 });
+    const onEvent = () => queryClient.invalidateQueries({ queryKey: ['match'] });
+    sdk.on('event', onEvent);
+    return () => {
+      sdk.off('event', onEvent);
+      sdk.stopEventSubscription();
+    };
+  }, [queryClient]);
 
-  const fetchMatches = async () => {
-    setLoading(true);
-    try {
-      // Fetch matches from API
-      setMatches([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const loading = matchQueries.some((q) => q.isLoading);
 
   return (
-    <div className="dashboard">
-      <h1>Your Matches</h1>
-      {loading ? <div>Loading...</div> : <MatchList matches={matches} />}
-    </div>
-  );
-}
-
-function MatchList({ matches }: { matches: Match[] }) {
-  return (
-    <div className="match-list">
-      {matches.map(m => (
-        <div key={m.id} className="match-card">
-          <p>vs {m.opponent}</p>
-          <p>{m.amount} XLM</p>
-          <span className={`status-${m.status}`}>{m.status}</span>
+    <div className="dashboard card">
+      <h1 className="text-2xl font-bold mb-6">Your Matches</h1>
+      {matchIds.length === 0 ? (
+        <p className="text-gray-600">No matches yet — create one from the lobby.</p>
+      ) : loading ? (
+        <div>Loading...</div>
+      ) : (
+        <div className="space-y-3">
+          {matchIds.map((matchId, i) => {
+            const match = matchQueries[i].data;
+            return (
+              <Link
+                key={matchId}
+                to={`/match/${matchId}`}
+                className="block border border-gray-200 rounded-lg p-4 hover:bg-gray-50"
+              >
+                <p className="font-mono text-sm">{matchId}</p>
+                <p className="text-sm text-gray-600">
+                  {match ? `${match.players.length} player(s) — ${match.status}` : 'unavailable'}
+                </p>
+              </Link>
+            );
+          })}
         </div>
-      ))}
+      )}
     </div>
   );
 }

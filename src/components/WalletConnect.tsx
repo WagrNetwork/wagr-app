@@ -1,94 +1,28 @@
-import { useState } from 'react'
-
-interface WalletConnectProps {
-  onConnect: (address: string) => void
-}
+import { useWallet } from '../lib/WalletContext';
 
 /**
- * Wallet connection component supporting Freighter, Albedo, and Rabet.
+ * Wallet connection button backed by the Freighter browser extension.
  */
-export default function WalletConnect({ onConnect }: WalletConnectProps) {
-  const [isConnected, setIsConnected] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+export default function WalletConnect() {
+  const { address, isConnecting, error, connect, disconnect } = useWallet();
 
-  const connectFreighter = async () => {
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      // @ts-ignore - Freighter is injected into window
-      if (!window.freighter) {
-        throw new Error('Freighter wallet not found')
-      }
-
-      // @ts-ignore
-      const publicKey = await window.freighter.getPublicKey()
-      onConnect(publicKey)
-      setIsConnected(true)
-      localStorage.setItem('connectedWallet', 'freighter')
-    } catch (err: any) {
-      setError(err.message)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const connectAlbedo = async () => {
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      // @ts-ignore - Albedo is injected into window
-      if (!window.albedo) {
-        throw new Error('Albedo wallet not found')
-      }
-
-      // @ts-ignore
-      const publicKey = await window.albedo.getPublicKey()
-      onConnect(publicKey)
-      setIsConnected(true)
-      localStorage.setItem('connectedWallet', 'albedo')
-    } catch (err: any) {
-      setError(err.message)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const disconnect = () => {
-    setIsConnected(false)
-    localStorage.removeItem('connectedWallet')
-    onConnect('')
-  }
-
-  if (isConnected) {
+  if (address) {
     return (
-      <button onClick={disconnect} className="btn btn-secondary">
-        Disconnect
-      </button>
-    )
+      <div className="flex items-center gap-3">
+        <span className="text-sm text-white opacity-80">{address.slice(0, 6)}...{address.slice(-4)}</span>
+        <button onClick={disconnect} className="btn btn-secondary">
+          Disconnect
+        </button>
+      </div>
+    );
   }
 
   return (
-    <div className="flex gap-2">
-      <button
-        onClick={connectFreighter}
-        disabled={isLoading}
-        className="btn btn-primary"
-        title="Connect Freighter wallet"
-      >
-        {isLoading ? 'Connecting...' : 'Freighter'}
+    <div className="flex flex-col items-end gap-1">
+      <button onClick={connect} disabled={isConnecting} className="btn btn-primary">
+        {isConnecting ? 'Connecting...' : 'Connect Freighter'}
       </button>
-      <button
-        onClick={connectAlbedo}
-        disabled={isLoading}
-        className="btn btn-secondary"
-        title="Connect Albedo wallet"
-      >
-        {isLoading ? 'Connecting...' : 'Albedo'}
-      </button>
-      {error && <div className="text-red-500 text-sm">{error}</div>}
+      {error && <div className="text-red-200 text-xs">{error}</div>}
     </div>
-  )
+  );
 }

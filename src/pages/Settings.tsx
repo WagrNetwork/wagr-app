@@ -1,22 +1,22 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { useDarkMode } from '../hooks/useDarkMode';
 
 interface UserSettings {
-  theme: 'light' | 'dark';
   notifications: boolean;
   autoRefresh: boolean;
   refreshInterval: number;
 }
 
 export default function Settings() {
+  const [isDark, setIsDark] = useDarkMode();
   const [settings, setSettings] = useState<UserSettings>({
-    theme: 'light',
     notifications: true,
     autoRefresh: true,
     refreshInterval: 5000,
   });
 
-  const handleChange = (key: keyof UserSettings, value: any) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
+  const handleChange = (key: keyof UserSettings, value: boolean | number) => {
+    setSettings((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleSave = () => {
@@ -24,16 +24,32 @@ export default function Settings() {
   };
 
   return (
-    <div className="settings">
-      <h1>Settings</h1>
-      <div className="setting-group">
-        <label>Theme</label>
-        <select value={settings.theme} onChange={e => handleChange('theme', e.target.value)}>
+    <div className="settings card">
+      <h1 className="text-2xl font-bold mb-6">Settings</h1>
+      <div className="setting-group mb-4">
+        <label className="block font-semibold mb-2">Theme</label>
+        <select
+          value={isDark ? 'dark' : 'light'}
+          onChange={(e) => setIsDark(e.target.value === 'dark')}
+          className="input-field"
+        >
           <option value="light">Light</option>
           <option value="dark">Dark</option>
         </select>
       </div>
-      <button onClick={handleSave}>Save Settings</button>
+      <div className="setting-group mb-4">
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={settings.autoRefresh}
+            onChange={(e) => handleChange('autoRefresh', e.target.checked)}
+          />
+          Auto-refresh match data
+        </label>
+      </div>
+      <button onClick={handleSave} className="btn btn-primary">
+        Save Settings
+      </button>
     </div>
   );
 }

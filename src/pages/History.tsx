@@ -1,63 +1,64 @@
-import React, { useState, useEffect } from 'react';
-
-interface HistoryMatch {
-  id: string;
-  opponent: string;
-  result: 'win' | 'loss' | 'draw';
-  amount: string;
-  date: number;
-}
+import { useState } from 'react';
+import { useQueries } from '@tanstack/react-query';
+import { sdk } from '../lib/sdk';
+import { getMyMatches } from '../lib/matchStore';
+import { useWallet } from '../lib/WalletContext';
 
 export default function History() {
-  const [history, setHistory] = useState<HistoryMatch[]>([]);
+  const { address } = useWallet();
   const [filter, setFilter] = useState<'all' | 'wins' | 'losses'>('all');
+  const matchIds = getMyMatches();
 
-  useEffect(() => {
-    loadHistory();
-  }, [filter]);
+  const matchQueries = useQueries({
+    queries: matchIds.map((matchId) => ({
+      queryKey: ['match', matchId],
+      queryFn: () => sdk.getMatch(matchId),
+    })),
+  });
 
-  const loadHistory = async () => {
-    // Load from localStorage or API
-    const saved = localStorage.getItem('matchHistory');
-    if (saved) {
-      setHistory(JSON.parse(saved));
-    }
-  };
+  const finalized = matchIds
+    .map((matchId, i) => ({ matchId, match: matchQueries[i].data }))
+    .filter((entry) => entry.match?.status === 'finalized');
 
-  const filtered = history.filter(m =>
-    filter === 'all' ? true : filter === 'wins' ? m.result === 'win' : m.result === 'loss'
-  );
+  const filtered = finalized.filter((entry) => {
+    if (filter === 'all') return true;
+    const won = entry.match!.winner === address;
+    return filter === 'wins' ? won : !won;
+  });
 
   return (
-    <div className="history">
-      <h1>Match History</h1>
-      <div className="filters">
-        {(['all', 'wins', 'losses'] as const).map(f => (
-          <button key={f} onClick={() => setFilter(f)} className={filter === f ? 'active' : ''}>
+    <div className="history card">
+      <h1 className="text-2xl font-bold mb-4">Match History</h1>
+      <div className="filters flex gap-2 mb-4">
+        {(['all', 'wins', 'losses'] as const).map((f) => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className={`btn ${filter === f ? 'btn-primary' : 'btn-secondary'}`}
+          >
             {f}
           </button>
         ))}
       </div>
-      <table>
+      <table className="w-full text-left">
         <thead>
           <tr>
-            <th>Opponent</th>
+            <th>Match</th>
+            <th>Winner</th>
             <th>Result</th>
-            <th>Amount</th>
-            <th>Date</th>
           </tr>
         </thead>
         <tbody>
-          {filtered.map(m => (
-            <tr key={m.id}>
-              <td>{m.opponent}</td>
-              <td className={`result-${m.result}`}>{m.result}</td>
-              <td>{m.amount} XLM</td>
-              <td>{new Date(m.date * 1000).toLocaleDateString()}</td>
+          {filtered.map(({ matchId, match }) => (
+            <tr key={matchId}>
+              <td className="font-mono text-sm">{matchId}</td>
+              <td className="font-mono text-sm">{match!.winner}</td>
+              <td>{match!.winner === address ? 'win' : 'loss'}</td>
             </tr>
           ))}
         </tbody>
       </table>
+      {filtered.length === 0 && <p className="text-gray-500 mt-4">No finalized matches yet.</p>}
     </div>
   );
 }
