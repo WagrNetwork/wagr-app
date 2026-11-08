@@ -66,8 +66,8 @@ function App() {
         <div className="max-w-6xl mx-auto text-center">
           <p>Wagr Protocol — trustless escrow and settlement for competitive matches on Stellar</p>
           <p className="text-gray-400 text-sm mt-2">
-            <a href="https://github.com/WagrNetwork/wagr-protocol">GitHub</a> •{' '}
-            <a href="https://wagr-protocol.github.io">Docs</a>
+            <a href="https://github.com/WagrNetwork/wagr-app">GitHub</a> •{' '}
+            <a href="https://github.com/WagrNetwork/wagr-contracts#readme">Docs</a>
           </p>
         </div>
       </footer>
