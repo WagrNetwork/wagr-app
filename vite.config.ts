@@ -16,5 +16,14 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/setupTests.ts'],
+    // Placeholder contract IDs so modules that build the SDK singleton can be
+    // imported in tests. No network calls are made against them.
+    env: {
+      VITE_SOROBAN_RPC_URL: 'https://soroban-testnet.stellar.org',
+      VITE_NETWORK_PASSPHRASE: 'Test SDF Network ; September 2015',
+      VITE_ESCROW_CONTRACT_ID: 'CTESTESCROW',
+      VITE_RESOLVER_CONTRACT_ID: 'CTESTRESOLVER',
+      VITE_PAYOUT_CONTRACT_ID: 'CTESTPAYOUT',
+    },
   },
 })

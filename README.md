@@ -4,7 +4,11 @@
 [![TypeScript](https://img.shields.io/badge/typescript-5.0-blue)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/build-vite-purple)](https://vitejs.dev/)
 
-Frontend for Wagr Protocol — match lobby, staking UI, wallet connect, and settlement tracking, built on [`@wagrnetwork/wagr-sdk`](https://github.com/WagrNetwork/wagr-sdk).
+[![CI](https://github.com/WagrNetwork/wagr-app/actions/workflows/ci.yml/badge.svg)](https://github.com/WagrNetwork/wagr-app/actions/workflows/ci.yml)
+
+Reference web app for Wagr Protocol: trustless escrow and settlement for competitive matches on Stellar. Lock stakes in a Soroban escrow, track oracle-reported results and disputes, and withdraw settled payouts, using [wagr-sdk](https://github.com/WagrNetwork/wagr-sdk).
+
+`npm install` pulls the SDK straight from GitHub, so no sibling checkout is needed. If `.env` is missing, the app shows which settings to fill in instead of a blank page.
 
 ## Overview
 
@@ -25,7 +29,6 @@ The app has no backend of its own: match/result/dispute state lives entirely in 
 ### Prerequisites
 
 - Node.js 18+
-- The [wagr-sdk](https://github.com/WagrNetwork/wagr-sdk) repo checked out as a sibling directory (this app depends on it via a local `file:../wagr-sdk` link, not a published npm package)
 - [Freighter](https://freighter.app) browser extension, for actually connecting a wallet
 
 ### Install
