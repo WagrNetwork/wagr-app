@@ -39,15 +39,13 @@ npm install
 
 ### Configure
 
-Copy `.env.example` to `.env` and fill in your deployed contract IDs:
+`.env.example` already points at the live [testnet deployment](https://github.com/WagrNetwork/wagr-contracts#testnet-deployment), so this is enough to run against testnet:
 
+```bash
+cp .env.example .env
 ```
-VITE_SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
-VITE_NETWORK_PASSPHRASE=Test SDF Network ; September 2015
-VITE_ESCROW_CONTRACT_ID=CA...
-VITE_RESOLVER_CONTRACT_ID=CB...
-VITE_PAYOUT_CONTRACT_ID=CC...
-```
+
+To use your own deployment, replace the three contract IDs with yours.
 
 ### Run
 
