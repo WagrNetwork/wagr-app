@@ -41,7 +41,7 @@ function App() {
           <div className="space-y-6">
             <div className="card">
               <h2 className="text-2xl font-bold mb-2">Welcome, {address.slice(0, 10)}...</h2>
-              <p className="text-gray-600">Create or join a wagering match</p>
+              <p className="text-gray-600">Create or join an escrowed match</p>
             </div>
 
             <Routes>
@@ -64,7 +64,7 @@ function App() {
 
       <footer className="bg-black bg-opacity-50 text-white py-4 px-6 mt-12">
         <div className="max-w-6xl mx-auto text-center">
-          <p>Wagr Protocol — Skill-based wagering on Soroban</p>
+          <p>Wagr Protocol — trustless escrow and settlement for competitive matches on Stellar</p>
           <p className="text-gray-400 text-sm mt-2">
             <a href="https://github.com/WagrNetwork/wagr-protocol">GitHub</a> •{' '}
             <a href="https://wagr-protocol.github.io">Docs</a>
