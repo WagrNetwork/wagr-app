@@ -8,6 +8,8 @@
 
 Reference web app for Wagr Protocol: trustless escrow and settlement for competitive matches on Stellar. Lock stakes in a Soroban escrow, track oracle-reported results and disputes, and withdraw settled payouts, using [wagr-sdk](https://github.com/WagrNetwork/wagr-sdk).
 
+**Live demo (Stellar testnet):** https://wagrnetwork.github.io/wagr-app/ — connect Freighter set to Testnet.
+
 `npm install` pulls the SDK straight from GitHub, so no sibling checkout is needed. If `.env` is missing, the app shows which settings to fill in instead of a blank page.
 
 ## Overview
