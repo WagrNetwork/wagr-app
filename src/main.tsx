@@ -39,7 +39,7 @@ if (missing.length > 0) {
         <React.StrictMode>
           <QueryClientProvider client={queryClient}>
             <WalletProvider>
-              <BrowserRouter>
+              <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, "")}>
                 <App />
               </BrowserRouter>
             </WalletProvider>
